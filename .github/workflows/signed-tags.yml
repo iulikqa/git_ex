@@ -1,0 +1,45 @@
+# ──────────────────────────────────────────────────────────────
+#  PART 2. GitHub Actions — signed annotated tags on main
+# ──────────────────────────────────────────────────────────────
+
+name: Create signed tag on main
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  signed-tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Import GPG key
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --list-secret-keys --keyid-format LONG
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+
+      - name: Configure Git for GPG
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git config user.signingkey "$GPG_KEY_ID"
+          git config tag.gpgSign true
+        env:
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+
+      - name: Create signed annotated tag
+        run: |
+          TAG_NAME="main-$(date +%Y%m%d-%H%M%S)"
+          git tag -s "$TAG_NAME" -m "Signed tag for main: $TAG_NAME"
+          git tag -v "$TAG_NAME"
+
+      - name: Push tag
+        run: |
+          git push origin --tags
